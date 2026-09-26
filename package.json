@@ -1,0 +1,27 @@
+{
+  "name": "contract-os",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n backend,frontend -c blue,green \"npm run dev -w apps/backend\" \"npm run dev -w apps/frontend\"",
+    "build": "npm run build -w apps/frontend && npm run build -w apps/backend",
+    "build:backend": "npm run build -w apps/backend",
+    "start:backend": "node apps/backend/dist/main.js",
+    "migrate:deploy": "npm run prisma:deploy -w apps/backend",
+    "seed:prod": "npm run prisma:seed -w apps/backend",
+    "lint": "npm run lint --workspaces",
+    "typecheck": "npm run typecheck --workspaces",
+    "db:migrate": "npm run prisma:migrate -w apps/backend",
+    "db:seed": "npm run prisma:seed -w apps/backend"
+  },
+  "engines": {
+    "node": "22.x"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.8.3"
+  }
+}

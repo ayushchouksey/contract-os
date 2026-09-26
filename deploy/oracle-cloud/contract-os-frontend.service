@@ -1,0 +1,16 @@
+[Unit]
+Description=Contract OS Frontend (Next.js)
+After=network.target
+
+[Service]
+Type=simple
+User=__APP_USER__
+WorkingDirectory=/opt/contract-os/apps/frontend
+ExecStart=/usr/bin/npm run start
+Restart=always
+RestartSec=3
+Environment=NODE_ENV=production
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

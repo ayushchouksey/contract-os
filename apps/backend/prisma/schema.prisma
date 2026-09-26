@@ -1,0 +1,404 @@
+// Contract OS - Prisma Schema
+// AI-Powered Contract Intelligence & Execution Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Core enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  LEGAL
+  FINANCE
+  PROCUREMENT
+  SALES
+  VIEWER
+}
+
+enum ContractStatus {
+  DRAFT
+  IN_REVIEW
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  IN_EXECUTION
+  EXECUTED
+  TERMINATED
+  EXPIRED
+  RENEWED
+  ARCHIVED
+}
+
+enum ContractType {
+  NDA
+  MSA
+  SOW
+  VENDOR
+  PURCHASE
+  SALES
+  LEASE
+  EMPLOYMENT
+  CONSENT
+  AMENDMENT
+  OTHER
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SKIPPED
+}
+
+enum WorkflowStepType {
+  APPROVAL
+  NOTIFICATION
+  COUNTER_SIGN
+  E_SIGNATURE
+  TASK
+}
+
+enum DocumentKind {
+  ORIGINAL
+  REDLINED
+  EXECUTED
+  SUPPORTING
+  OTHER
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// ---------------------------------------------------------------------------
+// Organization & Users
+// ---------------------------------------------------------------------------
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  industry  String?
+  country   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  contracts Contract[]
+  templates Template[]
+  clauses   Clause[]
+  workflows Workflow[]
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  passwordHash String
+  name         String
+  role         Role          @default(VIEWER)
+  isActive     Boolean       @default(true)
+  lastLoginAt  DateTime?
+  resetToken   String?
+  orgId        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  org                    Organization?    @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  ownedContracts         Contract[]       @relation("ContractOwner")
+  createdContracts       Contract[]       @relation("ContractCreator")
+  approvals              Approval[]       @relation("ApprovalCompleted")
+  comments               Comment[]
+  documentsUploaded      Document[]
+  workflowAssignments    WorkflowStep[]   @relation("StepApprover")
+  notifications          Notification[]
+
+  @@index([orgId])
+  @@index([email])
+}
+
+// ---------------------------------------------------------------------------
+// Contract model
+// ---------------------------------------------------------------------------
+
+model Contract {
+  id             String         @id @default(cuid())
+  contractNo     String         @unique
+  title          String
+  description    String?
+  type           ContractType
+  status         ContractStatus @default(DRAFT)
+  priority       Priority       @default(MEDIUM)
+
+  // Parties
+  counterpartyName  String
+  counterpartyEmail String?
+  entity            String?
+  subsidiary        String?
+
+  // Commercial
+  value       Decimal?   @db.Decimal(18, 2)
+  currency    String     @default("INR")
+  tenureYears Int?
+
+  // Timeline
+  startDate   DateTime?
+  endDate     DateTime?
+  renewalDate DateTime?
+  autoRenews  Boolean    @default(false)
+
+  // Governing
+  jurisdiction String?
+  governingLaw String?
+
+  // Request context
+  businessJustification String?
+  requestTrackingNumber String?
+
+  // Relations
+  orgId    String
+  ownerId  String?
+  createdById String?
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  executedAt DateTime?
+  signedAt   DateTime?
+
+  org       Organization? @relation(fields: [orgId], references: [id])
+  owner     User?         @relation("ContractOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdBy User?         @relation("ContractCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  versions       ContractVersion[]
+  documents      Document[]
+  approvals      Approval[]
+  comments       Comment[]
+  metadata       ContractMetadata?
+  parentContractId String?
+  parentContract   Contract?  @relation("ContractTree", fields: [parentContractId], references: [id], onDelete: SetNull)
+  childContracts  Contract[]  @relation("ContractTree")
+
+  templateId String?
+  template   Template? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  @@index([orgId])
+  @@index([status])
+  @@index([type])
+  @@index([counterpartyName])
+  @@index([renewalDate])
+}
+
+model ContractVersion {
+  id         String   @id @default(cuid())
+  version    Int
+  name       String?
+  summary    String?
+  content    String?  @db.Text
+  changes    Json?
+  documentId String?
+  createdById String?
+  createdAt  DateTime @default(now())
+
+  contractId String
+  contract   Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@unique([contractId, version])
+  @@index([contractId])
+}
+
+model ContractMetadata {
+  id             String  @id @default(cuid())
+  contractId     String  @unique
+  contract       Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  // AI-extracted fields
+  parties        Json    @default("[]")
+  extractedDates Json    @default("{}")
+  liability      String?
+  indemnity      String?
+  confidentiality String?
+  ipOwnership    String?
+  termination    String?
+  renewal        String?
+  sla            String?
+  obligations    Json    @default("[]")
+  riskScore      Int     @default(0)
+  riskFlags      Json    @default("[]")
+  summary        String?
+  extractionStatus String @default("PENDING")
+  extractedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Templates & Clauses
+// ---------------------------------------------------------------------------
+
+model Template {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  category    String?
+  content     String   @db.Text
+  variables   Json     @default("[]")
+  isDefault   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  version     Int      @default(1)
+  orgId       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org       Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  contracts Contract[]
+
+  @@index([orgId, category])
+}
+
+model Clause {
+  id          String   @id @default(cuid())
+  name        String
+  category    String?
+  title       String?
+  content     String   @db.Text
+  isDefault   Boolean  @default(false)
+  orgId       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  org Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, category])
+}
+
+// ---------------------------------------------------------------------------
+// Workflow & Approvals
+// ---------------------------------------------------------------------------
+
+model Workflow {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  contractType ContractType
+  isActive    Boolean  @default(true)
+  orgId       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org   Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  steps WorkflowStep[]
+
+  @@index([orgId, contractType])
+}
+
+model WorkflowStep {
+  id          String   @id @default(cuid())
+  workflowId  String
+  name        String
+  type        WorkflowStepType @default(APPROVAL)
+  stepOrder   Int
+  approverRole Role?
+  approverId  String?
+  minApprovers Int @default(1)
+  config      Json?
+
+  workflow  Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  approver  User?    @relation("StepApprover", fields: [approverId], references: [id], onDelete: SetNull)
+  approvals Approval[]
+
+  @@index([workflowId])
+}
+
+model Approval {
+  id             String         @id @default(cuid())
+  contractId     String
+  stepId         String?
+  stepName       String?
+  approverId     String?
+  approverRole   Role?
+  status         ApprovalStatus @default(PENDING)
+  comment        String?
+  signedAt       DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  contract Contract   @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  step     WorkflowStep? @relation(fields: [stepId], references: [id], onDelete: SetNull)
+  approver User?       @relation("ApprovalCompleted", fields: [approverId], references: [id], onDelete: SetNull)
+
+  @@index([contractId])
+  @@index([approverId])
+}
+
+// ---------------------------------------------------------------------------
+// Documents & Comments
+// ---------------------------------------------------------------------------
+
+model Document {
+  id          String       @id @default(cuid())
+  contractId  String
+  versionId   String?
+  name        String
+  path        String
+  mimeType    String
+  size        Int
+  checksum    String?
+  kind        DocumentKind @default(ORIGINAL)
+  uploadedById String?
+  createdAt   DateTime     @default(now())
+
+  contract   Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  uploadedBy User?    @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([contractId])
+}
+
+model Comment {
+  id             String   @id @default(cuid())
+  contractId     String
+  userId         String?
+  content        String   @db.Text
+  parentId       String?
+  mentions       Json     @default("[]")
+  resolved       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([contractId])
+}
+
+// ---------------------------------------------------------------------------
+// Notification (MVP: simple in-app notifications)
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String?
+  type      String   @default("INFO")
+  isRead    Boolean  @default(false)
+  entityType String?
+  entityId  String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+}
