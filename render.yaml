@@ -1,14 +1,15 @@
 # Render Blueprint - Contract OS backend (NestJS)
 # Free tier: web service (spins down after 15 min idle, ~30s cold start on wake).
-# The free plan has no persistent disk, so STORAGE_DRIVER=r2 persists uploads in Cloudflare R2.
+# No credit card required for Vercel + Render + Neon (all card-free).
 #
-# Required envVars you MUST provide (sync: false) before first deploy:
+# Storage on Render's free plan is ephemeral (wiped on redeploy/restart).
+#   - STORAGE_DRIVER=local (default): uploads work while the service is up but are lost on redeploy. Fine for a demo.
+#   - STORAGE_DRIVER=r2: persistent uploads via Cloudflare R2 (card-free, email-only signup). Optional.
+#
+# Required envVar you MUST provide (sync: false) before first deploy:
 #   DATABASE_URL          -> your Neon PostgreSQL connection string
-#   R2_ACCOUNT_ID         -> Cloudflare account ID (from R2 dashboard)
-#   R2_ACCESS_KEY_ID      -> R2 API token access key
-#   R2_SECRET_ACCESS_KEY  -> R2 API token secret
-#   R2_BUCKET             -> your R2 bucket name
 #   CORS_ORIGIN           -> your Vercel frontend URL (update the placeholder below)
+# Optional (only if STORAGE_DRIVER=r2): R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
 
 services:
   - type: web
@@ -27,7 +28,7 @@ services:
       - key: AI_PROVIDER
         value: mock
       - key: STORAGE_DRIVER
-        value: r2
+        value: local
       - key: CORS_ORIGIN
         value: https://your-app.vercel.app
         sync: false
