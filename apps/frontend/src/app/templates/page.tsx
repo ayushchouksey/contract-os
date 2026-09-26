@@ -7,6 +7,20 @@ import { ProtectedPage } from '@/components/protected-page';
 import { Card, CardHeader, CardContent, Button, PageLoader, Input, Textarea, Select, EmptyState, Modal, Badge } from '@/components/ui/common';
 import { toast } from 'sonner';
 
+function LoadFailed({ label, onRetry }: { label: string; onRetry: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white py-12 text-center">
+      <p className="text-sm font-medium text-slate-700">{label}</p>
+      <p className="mt-1 text-xs text-slate-400">
+        Check that the server is awake, then try again.
+      </p>
+      <Button size="sm" variant="outline" className="mt-4" onClick={onRetry}>
+        Retry
+      </Button>
+    </div>
+  );
+}
+
 export default function TemplatesPage() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<'templates' | 'clauses'>('templates');
@@ -15,7 +29,12 @@ export default function TemplatesPage() {
   const [renderFor, setRenderFor] = useState<any | null>(null);
   const [renderVars, setRenderVars] = useState<Record<string, string>>({});
 
-  const { data: templates, isLoading } = useQuery({
+  const {
+    data: templates,
+    isLoading: isLoadingTemplates,
+    isError: isTemplatesError,
+    refetch: refetchTemplates,
+  } = useQuery({
     queryKey: ['templates', category],
     queryFn: async () => {
       const params = category ? `?category=${category}` : '';
@@ -23,7 +42,12 @@ export default function TemplatesPage() {
     },
   });
 
-  const { data: clauses } = useQuery({
+  const {
+    data: clauses,
+    isLoading: isLoadingClauses,
+    isError: isClausesError,
+    refetch: refetchClauses,
+  } = useQuery({
     queryKey: ['clauses'],
     queryFn: async () => (await api.get('/clauses')).data,
   });
@@ -88,8 +112,10 @@ export default function TemplatesPage() {
         </div>
 
         {tab === 'templates' ? (
-          isLoading ? (
+          isLoadingTemplates ? (
             <PageLoader />
+          ) : isTemplatesError ? (
+            <LoadFailed label="Couldn't load templates" onRetry={refetchTemplates} />
           ) : templates?.length ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {templates.map((t: any) => (
@@ -123,21 +149,23 @@ export default function TemplatesPage() {
           ) : (
             <EmptyState title="No templates" description="Create your first template to accelerate contract creation." />
           )
+        ) : isLoadingClauses ? (
+          <PageLoader />
+        ) : isClausesError ? (
+          <LoadFailed label="Couldn't load clauses" onRetry={refetchClauses} />
+        ) : clauses?.length ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {clauses.map((c: any) => (
+              <Card key={c.id}>
+                <CardHeader title={c.name} subtitle={c.category ?? 'General'} />
+                <CardContent>
+                  <p className="text-xs leading-relaxed text-slate-600 line-clamp-4">{c.content}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         ) : (
-          clauses?.length ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {clauses.map((c: any) => (
-                <Card key={c.id}>
-                  <CardHeader title={c.name} subtitle={c.category ?? 'General'} />
-                  <CardContent>
-                    <p className="text-xs leading-relaxed text-slate-600 line-clamp-4">{c.content}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <EmptyState title="No clauses in library" />
-          )
+          <EmptyState title="No clauses in library" />
         )}
       </div>
 
