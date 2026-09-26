@@ -30,8 +30,7 @@ services:
       - key: STORAGE_DRIVER
         value: local
       - key: CORS_ORIGIN
-        value: https://your-app.vercel.app
-        sync: false
+        value: https://contract-os-frontend-1.vercel.app
       - key: JWT_SECRET
         generateValue: true
       - key: DATABASE_URL
