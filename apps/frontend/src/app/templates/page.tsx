@@ -7,6 +7,23 @@ import { ProtectedPage } from '@/components/protected-page';
 import { Card, CardHeader, CardContent, Button, PageLoader, Input, Textarea, Select, EmptyState, Modal, Badge } from '@/components/ui/common';
 import { toast } from 'sonner';
 
+function toVariables(v: unknown): string[] {
+  if (Array.isArray(v)) return v.map(String);
+  if (typeof v === 'string') {
+    try {
+      const parsed: unknown = JSON.parse(v);
+      if (Array.isArray(parsed)) return parsed.map(String);
+    } catch {
+      // fall through
+    }
+    return v
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
 function LoadFailed({ label, onRetry }: { label: string; onRetry: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white py-12 text-center">
@@ -72,7 +89,7 @@ export default function TemplatesPage() {
   const openRender = (t: any) => {
     setRenderFor(t);
     const vars: Record<string, string> = {};
-    (t.variables ?? []).forEach((v: string) => {
+    toVariables(t.variables).forEach((v: string) => {
       vars[v] = v === 'EFFECTIVE_DATE' ? new Date().toISOString().slice(0, 10) : '';
     });
     setRenderVars(vars);
@@ -130,10 +147,10 @@ export default function TemplatesPage() {
                       <p className="text-xs text-slate-500 line-clamp-2">{t.description}</p>
                     )}
                     <p className="mt-3 text-[10px] font-medium uppercase text-slate-400">
-                      v{t.version} · {t.variables?.length ?? 0} variables
+                      v{t.version} · {toVariables(t.variables).length} variables
                     </p>
                     <div className="mt-2 flex flex-wrap gap-1">
-                      {(t.variables ?? []).slice(0, 5).map((v: string) => (
+                      {toVariables(t.variables).slice(0, 5).map((v: string) => (
                         <span key={v} className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">{v}</span>
                       ))}
                     </div>
@@ -189,7 +206,7 @@ export default function TemplatesPage() {
       {/* Render modal */}
       <Modal open={Boolean(renderFor)} onClose={() => setRenderFor(null)} title={`Draft from ${renderFor?.name ?? ''}`}>
         <div className="space-y-4">
-          {(renderFor?.variables ?? []).map((v: string) => (
+          {(renderFor?.variables ? toVariables(renderFor.variables) : []).map((v: string) => (
             <Input
               key={v}
               label={v}

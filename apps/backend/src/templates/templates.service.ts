@@ -12,8 +12,27 @@ import {
   UpdateTemplateDto,
 } from './dto/template.dto.js';
 import { } from '../common/decorators/current-user.decorator.js';
-import { ContractStatus, ContractType, Prisma } from '@prisma/client';
+import { ContractStatus, ContractType, Prisma, Template } from '@prisma/client';
 import type { AuthUser } from '../common/decorators/current-user.decorator.js';
+
+function toVariablesArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((v) => String(v));
+  if (typeof value === 'string') {
+    try {
+      const parsed: unknown = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed.map((v) => String(v));
+    } catch {
+      // fall through to comma-split
+    }
+    return value
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+type SerializableTemplate = Template & { variables: string[] };
 
 @Injectable()
 export class TemplatesService {
@@ -40,27 +59,36 @@ export class TemplatesService {
       ? { OR: [{ orgId: user.orgId }, { orgId: null }] }
       : {};
     if (category) where.AND = [{ category }];
-    return this.prisma.template.findMany({
+    const templates = await this.prisma.template.findMany({
       where,
       orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
     });
+    return templates.map((t) => this.serialize(t));
   }
 
   async getTemplate(id: string) {
     const template = await this.prisma.template.findUnique({ where: { id } });
     if (!template) throw new NotFoundException('Template not found');
-    return template;
+    return this.serialize(template);
   }
 
   async updateTemplate(id: string, dto: UpdateTemplateDto) {
     await this.getTemplate(id);
-    return this.prisma.template.update({
+    const updated = await this.prisma.template.update({
       where: { id },
       data: {
         ...dto,
         version: { increment: 1 },
       },
     });
+    return this.serialize(updated);
+  }
+
+  private serialize(template: Template): SerializableTemplate {
+    return {
+      ...template,
+      variables: toVariablesArray(template.variables),
+    };
   }
 
   async deleteTemplate(id: string) {

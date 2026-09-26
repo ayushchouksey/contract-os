@@ -93,7 +93,7 @@ async function main() {
       name: 'Standard NDA',
       category: 'NDA',
       description: 'Mutual Non-Disclosure Agreement template',
-      variables: JSON.stringify(['{{PARTY_A}}', '{{PARTY_B}}', '{{EFFECTIVE_DATE}}', '{{GOVERNING_STATE}}']),
+      variables: ['{{PARTY_A}}', '{{PARTY_B}}', '{{EFFECTIVE_DATE}}', '{{GOVERNING_STATE}}'],
       content: `NON-DISCLOSURE AGREEMENT
 
 This Non-Disclosure Agreement ("Agreement") is entered into by and between {{PARTY_A}} and {{PARTY_B}} effective as of {{EFFECTIVE_DATE}}.
@@ -111,7 +111,7 @@ This Non-Disclosure Agreement ("Agreement") is entered into by and between {{PAR
       name: 'Master Services Agreement',
       category: 'MSA',
       description: 'Master Services Agreement template',
-      variables: JSON.stringify(['{{CUSTOMER}}', '{{VENDOR}}', '{{EFFECTIVE_DATE}}', '{{SERVICE_DESC}}']),
+      variables: ['{{CUSTOMER}}', '{{VENDOR}}', '{{EFFECTIVE_DATE}}', '{{SERVICE_DESC}}'],
       content: `MASTER SERVICES AGREEMENT
 
 This Master Services Agreement ("Agreement") is made and entered into as of {{EFFECTIVE_DATE}} (the "Effective Date") by and between {{CUSTOMER}} ("Customer") and {{VENDOR}} ("Provider").
@@ -133,7 +133,7 @@ This Master Services Agreement ("Agreement") is made and entered into as of {{EF
   for (const t of templates) {
     await prisma.template.upsert({
       where: { id: t.id },
-      update: {},
+      update: { variables: t.variables },
       create: { ...t, orgId: org.id, isDefault: true },
     });
   }
