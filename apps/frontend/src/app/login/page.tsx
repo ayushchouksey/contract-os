@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
-import { Input, Button } from '@/components/ui/common';
+import { Input, Button, Spinner } from '@/components/ui/common';
 import { toast } from 'sonner';
 
 export default function LoginPage() {
@@ -20,7 +20,13 @@ export default function LoginPage() {
       await login(form.email, form.password);
       router.push('/dashboard');
     } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? 'Login failed');
+      if (err?.code === 'ECONNABORTED') {
+        toast.error(
+          'The server took too long to respond. It may still be starting up — please try again.',
+        );
+      } else {
+        toast.error(err?.response?.data?.message ?? 'Login failed');
+      }
     } finally {
       setLoading(false);
     }
@@ -62,8 +68,21 @@ export default function LoginPage() {
               className="w-full"
               disabled={loading}
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? (
+                <span className="inline-flex items-center gap-2">
+                  <Spinner className="h-4 w-4 border-indigo-200 border-t-indigo-600" />
+                  Signing in…
+                </span>
+              ) : (
+                'Sign in'
+              )}
             </Button>
+            {loading && (
+              <p className="animate-pulse text-center text-xs text-slate-400">
+                Free server may be waking up — the first request can take up to a
+                minute.
+              </p>
+            )}
           </form>
 
           <p className="mt-4 text-center text-xs text-slate-400">
