@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { ProtectedPage } from '@/components/protected-page';
@@ -13,6 +14,7 @@ export default function ContractsPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [type, setType] = useState('');
+  const router = useRouter();
 
   const { data, isLoading } = useQuery({
     queryKey: ['contracts', { search, status, type }],
@@ -75,11 +77,11 @@ export default function ContractsPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {contracts.map((c: any) => (
-                    <tr key={c.id} className="cursor-pointer transition-colors hover:bg-slate-50">
-                      <td className="px-5 py-3.5" onClick={() => (window.location.href = `/contracts/${c.id}`)}>
-                        <Link href={`/contracts/${c.id}`} className="block truncate font-medium text-indigo-600 hover:underline">
+                    <tr key={c.id} className="cursor-pointer transition-colors hover:bg-slate-50" onClick={() => router.push(`/contracts/${c.id}`)}>
+                      <td className="px-5 py-3.5">
+                        <span className="block truncate font-medium text-indigo-600">
                           {c.title}
-                        </Link>
+                        </span>
                         <p className="mt-0.5 text-xs text-slate-400">{c.contractNo}</p>
                       </td>
                       <td className="px-4 py-3.5 text-slate-600">{c.counterpartyName}</td>

@@ -9,7 +9,7 @@ import {
   ReactNode,
 } from 'react';
 import { api } from '@/lib/api';
-import { clearToken, getToken, setToken, User } from '@/lib/auth';
+import { clearToken, clearUserData, getToken, getUser, setToken, setUserData, User } from '@/lib/auth';
 
 interface AuthContextValue {
   user: User | null;
@@ -28,12 +28,16 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return getUser();
+  });
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     const token = getToken();
     if (!token) {
+      clearUserData();
       setUser(null);
       setLoading(false);
       return;
@@ -41,9 +45,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const res = await api.get<User>('/auth/me');
       setUser(res.data);
-    } catch {
-      clearToken();
-      setUser(null);
+      setUserData(res.data);
+    } catch (err: any) {
+      if (err?.response?.status === 401) {
+        clearToken();
+        clearUserData();
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -59,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       { email, password },
     );
     setToken(res.data.accessToken);
+    setUserData(res.data.user);
     setUser(res.data.user);
   }, []);
 
@@ -69,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         data,
       );
       setToken(res.data.accessToken);
+      setUserData(res.data.user);
       setUser(res.data.user);
     },
     [],
@@ -76,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     clearToken();
+    clearUserData();
     setUser(null);
   }, []);
 
