@@ -1,4 +1,3 @@
-# Vercel deployment config for the Next.js frontend
 {
   "framework": "nextjs"
 }
