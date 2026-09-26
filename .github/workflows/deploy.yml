@@ -1,0 +1,49 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  ci:
+    name: Build check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Build backend
+        run: npm run build:backend
+      - name: Build frontend
+        run: npm run build -w apps/frontend
+
+  deploy-render:
+    name: Deploy backend to Render
+    needs: ci
+    if: env.RENDER_HOOK != ''
+    env:
+      RENDER_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy hook
+        run: |
+          curl -fsS -X POST "$RENDER_HOOK"
+          echo "Render deploy triggered."
+
+  deploy-vercel:
+    name: Deploy frontend to Vercel
+    needs: ci
+    if: env.VERCEL_HOOK != ''
+    env:
+      VERCEL_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel deploy hook
+        run: |
+          curl -fsS -X POST "$VERCEL_HOOK"
+          echo "Vercel deploy triggered."
