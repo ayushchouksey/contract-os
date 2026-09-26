@@ -25,25 +25,27 @@ jobs:
   deploy-render:
     name: Deploy backend to Render
     needs: ci
-    if: env.RENDER_HOOK != ''
-    env:
-      RENDER_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Render deploy hook
+        if: ${{ secrets.RENDER_DEPLOY_HOOK_URL != '' }}
         run: |
-          curl -fsS -X POST "$RENDER_HOOK"
+          curl -fsS -X POST --max-time 60 "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
           echo "Render deploy triggered."
+      - name: Skip (hook URL not configured)
+        if: ${{ secrets.RENDER_DEPLOY_HOOK_URL == '' }}
+        run: echo "Render deploy skipped: RENDER_DEPLOY_HOOK_URL secret is not set."
 
   deploy-vercel:
     name: Deploy frontend to Vercel
     needs: ci
-    if: env.VERCEL_HOOK != ''
-    env:
-      VERCEL_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Vercel deploy hook
+        if: ${{ secrets.VERCEL_DEPLOY_HOOK_URL != '' }}
         run: |
-          curl -fsS -X POST "$VERCEL_HOOK"
+          curl -fsS -X POST --max-time 60 "${{ secrets.VERCEL_DEPLOY_HOOK_URL }}"
           echo "Vercel deploy triggered."
+      - name: Skip (hook URL not configured)
+        if: ${{ secrets.VERCEL_DEPLOY_HOOK_URL == '' }}
+        run: echo "Vercel deploy skipped: VERCEL_DEPLOY_HOOK_URL secret is not set."
